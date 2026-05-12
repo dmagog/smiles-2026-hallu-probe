@@ -213,3 +213,36 @@ AUROC (0.7415 vs random-guess 0.5).
 * **Dimensionality reduction** (PCA → 128 components).  On 896-dim input
   with a regularised MLP, PCA neither helped nor hurt average AUROC and
   reduced interpretability of probe coefficients.  Not included.
+
+## Not explored — promising directions
+
+Each item below is paired with the hypothesis I would test and a rough
+expected lift; none of them is currently in the submission.
+
+* **Behavioural features alongside the hidden-state probe.**  Per-token
+  entropy of the next-token distribution, mean / max entropy across the
+  response, and response perplexity.  The hidden-state path captures what
+  the model "thinks"; behavioural features capture how *confident* it is.
+  When stacked with internal-state features, the factuality-probing
+  literature commonly reports ~+3 – +5 pp accuracy.  Cost: one extra
+  forward pass per sample with `output_scores=True`.
+* **Self-consistency sampling.**  Sample `N` independent completions for
+  the same prompt (with temperature > 0), measure agreement with the
+  reference response, and feed the agreement score to the probe.
+  Conceptually orthogonal to internal-state probing and one of the
+  largest single-source gains on small-model hallucination detection
+  in the literature.  Cost: `N` extra generations per sample.
+* **Probability calibration before threshold tuning.**  Temperature
+  scaling or isotonic regression on the val split would flatten the
+  per-fold variance of the F1-tuned threshold (currently ranging from
+  ~0.35 to ~0.55 across folds).  Expected lift: ~+1 pp accuracy at zero
+  extra inference cost.
+* **A larger probing model.**  The same recipe on Qwen2.5-1.5B or 3B
+  hidden states usually picks up a few percentage points because the
+  larger models' representations are cleaner and the truthfulness
+  direction is more linearly separable.  Cost: ~3× extraction time and
+  4–6 GB of VRAM.
+* **Heterogeneous stack ensemble.**  Adding a logistic regression and a
+  shallow gradient-boosted tree as additional probes and averaging the
+  probabilities tends to add ~0.5 – +1 pp because the error modes of
+  linear, MLP, and tree-based classifiers only partially overlap.
