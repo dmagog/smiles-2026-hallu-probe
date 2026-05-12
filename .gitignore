@@ -30,3 +30,6 @@ Thumbs.db
 # Cached feature matrix (regeneratable from solution.py)
 features_cache/
 *.npz
+
+# Local dev logs from run_local.py
+logs/
