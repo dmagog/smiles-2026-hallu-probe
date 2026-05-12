@@ -1,0 +1,32 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Predictions go to cloud storage (link is provided in SOLUTION.md)
+predictions.csv
+
+# All JSON ignored EXCEPT results.json (required submission artifact)
+*.json
+!results.json
+
+# HuggingFace / torch caches
+.cache/
+hf_cache/
+torch_home/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Cached feature matrix (regeneratable from solution.py)
+features_cache/
+*.npz
