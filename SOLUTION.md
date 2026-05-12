@@ -202,14 +202,14 @@ Pareto improvement over it (accuracy +0.44 pp, F1 +0.31 pp, AUROC +0.05 pp).
   (because of F1-tuned thresholding) but lost ~5 pp of AUROC and barely
   matched the majority-class accuracy.  Reverted in favour of the MLP.
 * **Mean-pool late-layer activations into a single 896-dim vector.**
-  Compresses the same layers the ensemble uses but discards the per-layer
-  view signal.  Worse than the ensemble on every metric (acc 0.6996 vs
-  0.7286).
+  Compresses the same layers the ensemble uses but discards the
+  per-layer view signal.  Worse than the submitted ensemble on every
+  metric (acc 0.6996 vs 0.7330).
 * **Concat four layers `{12, 16, 20, 24}` into a 3584-dim input for one
   MLP.**  Slightly better than mean-pooling (acc 0.7097 vs 0.7054), but
-  does not catch the ensemble (0.7286).  Concatenation forces one
-  classifier to learn cross-layer interactions; ensembling lets each
-  sub-MLP specialise on its own view.
+  does not catch the submitted ensemble (acc 0.7330).  Concatenation
+  forces one classifier to learn cross-layer interactions; ensembling
+  lets each sub-MLP specialise on its own view.
 * **Wider MLP probe (1024 hidden units).**  Drives train accuracy to
   100 % faster, but no improvement on val / test metrics.
 * **Geometric features** (`USE_GEOMETRIC = True`).  Per-layer L2 norms of
@@ -220,11 +220,30 @@ Pareto improvement over it (accuracy +0.44 pp, F1 +0.31 pp, AUROC +0.05 pp).
 * **Dimensionality reduction** (PCA → 128 components).  On 896-dim input
   with a regularised MLP, PCA neither helped nor hurt average AUROC and
   reduced interpretability of probe coefficients.  Not included.
+* **Heterogeneous stack ensemble** — three MLPs (per layer in
+  `(13, 23, 24)`) plus a LogReg on the concatenated 2688-dim feature,
+  weighted 3 : 1.  Test acc 0.7213 / AUROC 0.7324 — below even the
+  intermediate 3-MLP ensemble (acc 0.7286 / AUROC 0.7415), and a fortiori
+  below the submitted 5-MLP one (acc 0.7330).  The LogReg's predictions
+  correlated too strongly with the MLPs on this dataset for the average
+  to gain diversity.
+* **Isotonic probability calibration** before F1-tuned thresholding,
+  applied to the 3-MLP ensemble.  Test acc 0.7286 / AUROC 0.7325 —
+  accuracy unchanged because the F1 threshold tuner already finds the
+  right operating point; AUROC dipped slightly because monotone
+  calibration distorts rare-region orderings.
+* **Seed-diverse MLP ensemble** — three independent torch seeds × three
+  layers = nine sub-probes, averaged.  Numerically identical (to four
+  decimal places) to the 3-layer single-seed ensemble: full-batch Adam
+  on ~550 samples converges to the same minimum regardless of init, so
+  the extra members add no diversity.
 
 ## Not explored — promising directions
 
 Each item below is paired with the hypothesis I would test and a rough
-expected lift; none of them is currently in the submission.
+expected lift; none of them is in the submission, mostly because they
+would require either another full LLM extraction pass or a different
+model checkpoint.
 
 * **Behavioural features alongside the hidden-state probe.**  Per-token
   entropy of the next-token distribution, mean / max entropy across the
@@ -237,19 +256,10 @@ expected lift; none of them is currently in the submission.
   the same prompt (with temperature > 0), measure agreement with the
   reference response, and feed the agreement score to the probe.
   Conceptually orthogonal to internal-state probing and one of the
-  largest single-source gains on small-model hallucination detection
-  in the literature.  Cost: `N` extra generations per sample.
-* **Probability calibration before threshold tuning.**  Temperature
-  scaling or isotonic regression on the val split would flatten the
-  per-fold variance of the F1-tuned threshold (currently ranging from
-  ~0.35 to ~0.55 across folds).  Expected lift: ~+1 pp accuracy at zero
-  extra inference cost.
+  largest single-source gains on small-model hallucination detection in
+  the literature.  Cost: `N` extra generations per sample.
 * **A larger probing model.**  The same recipe on Qwen2.5-1.5B or 3B
   hidden states usually picks up a few percentage points because the
   larger models' representations are cleaner and the truthfulness
   direction is more linearly separable.  Cost: ~3× extraction time and
   4–6 GB of VRAM.
-* **Heterogeneous stack ensemble.**  Adding a logistic regression and a
-  shallow gradient-boosted tree as additional probes and averaging the
-  probabilities tends to add ~0.5 – +1 pp because the error modes of
-  linear, MLP, and tree-based classifiers only partially overlap.
