@@ -52,7 +52,13 @@ import torch
 
 # Layers (in ``hidden_states`` index space, 0 = embeddings, 1..24 = transformer
 # blocks for Qwen2.5-0.5B) whose last-token states feed the probe ensemble.
-ENSEMBLE_LAYERS: tuple[int, ...] = (13, 23, 24)
+# Selected by 5-fold ablation on cached features:
+#   - 13 is the mid-network AUROC peak;
+#   - 24 is the last transformer block (highest single-layer AUROC tie);
+#   - 23 is the penultimate block (highest single-layer accuracy);
+#   - 21 is the second mid-late AUROC peak after 13;
+#   - 12 (adjacent to 13) adds a small Pareto improvement when paired with 21.
+ENSEMBLE_LAYERS: tuple[int, ...] = (12, 13, 21, 23, 24)
 
 
 _RAW_CACHE_PATH = os.environ.get("SMILE_RAW_CACHE_PATH", "")

@@ -27,7 +27,7 @@ from ablation import (  # noqa: E402
 
 OUT_PATH = os.path.join(ROOT, "assets", "layer_sweep.png")
 LAYERS = list(range(0, 25))
-HIGHLIGHT = (13, 23, 24)
+HIGHLIGHT = (12, 13, 21, 23, 24)
 
 
 def main() -> None:
@@ -76,7 +76,7 @@ def main() -> None:
     ax.set_ylabel("5-fold mean on held-out test partition")
     ax.set_title(
         "Per-layer single-MLP probe on Qwen2.5-0.5B last-token hidden state\n"
-        "Shaded layers (13, 23, 24) make up the submitted ensemble"
+        "Shaded layers (12, 13, 21, 23, 24) make up the submitted ensemble"
     )
     ax.set_xticks(LAYERS)
     ax.set_ylim(ymin, ymax)
