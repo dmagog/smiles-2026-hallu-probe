@@ -4,6 +4,16 @@ Detect whether a small language
 model's answer is *hallucinated* (fabricated) or *truthful* using the model's
 own internal representations (hidden states).
 
+> **Submission for SMILES-2026 by Georgy Mamarin.**
+> The full write-up — final approach, ablations, failed experiments —
+> is in **[`SOLUTION.md`](SOLUTION.md)**.
+> Submitted metrics live in **[`results.json`](results.json)**.
+> The cloud-hosted **`predictions.csv`** is attached to the [v1.0 release](https://github.com/dmagog/smiles-2026-hallu-probe/releases/tag/v1.0)
+> (direct download: <https://github.com/dmagog/smiles-2026-hallu-probe/releases/download/v1.0/predictions.csv>).
+>
+> The rest of this file is the upstream task description, kept verbatim
+> for context.
+
 ## Overview
 
 Large (and small) language models sometimes *hallucinate* — they generate
