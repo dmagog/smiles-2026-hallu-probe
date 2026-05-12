@@ -63,23 +63,26 @@ Final aggregation: concatenate the last-token hidden states from layers
 
 The five layers come from a single-layer probe sweep across all 25
 positions of the `hidden_states` tuple (Figure 1) and a follow-up
-layer-combination ablation.  The four AUROC local maxima of the
-single-layer sweep — **13** (mid-network, AUROC 0.7187), **21** (mid-late,
-AUROC 0.7018), **23** (penultimate, accuracy 0.7141), and **24** (final,
-AUROC 0.7182) — provide complementary views; layer **12** (adjacent to
-13) was added because the four-layer ensemble dipped slightly without it.
-This is consistent with the truthfulness-probing literature, which places
-factuality signal both in middle layers (Burns et al. 2022 CCS) and near
-the output (Azaria & Mitchell 2023).
+layer-combination ablation.  Three layers are AUROC local maxima of the
+sweep — **13** (mid-network, AUROC 0.7187), **21** (mid-late, AUROC
+0.7018), and **24** (final, AUROC 0.7182).  Layer **23** is added as the
+accuracy peak of the sweep (acc 0.7141, F1 0.8263, AUROC 0.7068) — its
+ranking quality is similar to 21–22 but its decision boundary is
+noticeably better.  Layer **12** (adjacent to 13) was included because
+the four-layer ensemble dipped slightly without it.  This is consistent
+with the truthfulness-probing literature, which places factuality signal
+both in middle layers (Burns et al. 2022 CCS) and near the output
+(Azaria & Mitchell 2023).
 
 ![Figure 1 — Per-layer single-MLP probe sweep](assets/layer_sweep.png)
 
 *Figure 1.  Test-fold accuracy (blue) and AUROC (red) as a function of which
 single hidden-state layer feeds the MLP probe.  Shaded layers
 `(12, 13, 21, 23, 24)` form the submitted ensemble; the dashed line marks
-the majority-class accuracy baseline.  Layers 0..7 are dominated by
-token-embedding noise; factuality signal builds up gradually and the
-shaded layers are the local maxima the ensemble draws from.*
+the majority-class accuracy baseline.  Layer 0 (token embeddings) is at
+chance AUROC; layers 1..7 carry only a weak signal; factuality
+information builds up around the mid-network at layer 12-13 and again
+near the output at layers 21-24.*
 
 When `SMILE_RAW_CACHE_PATH` is set, `aggregate` also writes the per-sample
 `(25, 896)` last-token activation matrix to disk on process exit.  This
@@ -124,8 +127,8 @@ Final: 5 stratified folds, each reserving 1/5 of the data for test and
 
 * Test metrics averaged over 5 disjoint test partitions are much
   lower-variance than a single 138-row test slice — per-fold accuracy in
-  the shipped run ranges from 69.57 % to 73.91 %, a 4-point window that a
-  single split would hide.
+  the shipped run ranges from 69.57 % to 76.09 %, a 6.5-point window
+  that a single split would hide.
 * `solution.py` re-fits the **final** probe (the one used for
   `predictions.csv`) on the union of `idx_train ∪ idx_val` across all folds.
   Under 5-fold this union is **all 689 labelled rows**, so the production
@@ -167,10 +170,10 @@ of the stack are:
 |    18 |    0.6952 |    0.8157 |    0.6638 |
 |    19 |    0.6923 |    0.8089 |    0.6777 |
 |    20 |    0.7083 |    0.8150 |    0.6729 |
-|    21 |    0.7054 |    0.8192 |    0.7018 |
+|**21** |    0.7054 |    0.8192 | **0.7018** |
 |    22 |    0.6938 |    0.8089 |    0.7013 |
 |**23** | **0.7141** | **0.8263** |    0.7068 |
-|**24** |    0.7112 |    0.8166 |    0.7182 |
+|**24** |    0.7112 |    0.8166 | **0.7182** |
 
 ### Aggregation × probe table
 
@@ -217,9 +220,11 @@ Pareto improvement over it (accuracy +0.44 pp, F1 +0.31 pp, AUROC +0.05 pp).
   feature.  Adds 26 mostly-redundant scalars; no reproducible gain across
   folds.  Implementation kept in `aggregation.py` for future ablation,
   default constant in `solution.py` remains `False`.
-* **Dimensionality reduction** (PCA → 128 components).  On 896-dim input
-  with a regularised MLP, PCA neither helped nor hurt average AUROC and
-  reduced interpretability of probe coefficients.  Not included.
+* **Dimensionality reduction** (PCA → 128 components, applied to the
+  896-dim single-layer feature with a regularised MLP).  Neither helped
+  nor hurt average AUROC and reduced interpretability of probe
+  coefficients.  Not re-tried on the 4480-dim ensemble feature because
+  the per-layer chunks are already small relative to the probe size.
 * **Heterogeneous stack ensemble** — three MLPs (per layer in
   `(13, 23, 24)`) plus a LogReg on the concatenated 2688-dim feature,
   weighted 3 : 1.  Test acc 0.7213 / AUROC 0.7324 — below even the
