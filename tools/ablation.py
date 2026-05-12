@@ -31,6 +31,8 @@ from sklearn.preprocessing import StandardScaler
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
+from aggregation import ENSEMBLE_LAYERS as _ENSEMBLE_LAYERS  # noqa: E402
+from probe import HallucinationProbe  # noqa: E402
 from splitting import split_data  # noqa: E402  (uses repo's improved splitting)
 
 
@@ -156,6 +158,20 @@ def probe_mlp_wd(X_tr, y_tr, X_val, y_val, X_te):
     return (proba >= threshold).astype(int), proba
 
 
+def probe_submitted(X_tr, y_tr, X_val, y_val, X_te):
+    """Reproduces the shipped submission via the actual ``HallucinationProbe``.
+
+    Uses the same ``fit`` / ``fit_hyperparameters`` calls that ``evaluate.py``
+    issues inside the full 5-fold pipeline, so the resulting metrics match
+    ``results.json`` up to numerical noise.
+    """
+    probe = HallucinationProbe()
+    probe.fit(X_tr, y_tr)
+    if X_val is not None:
+        probe.fit_hyperparameters(X_val, y_val)
+    return probe.predict(X_te), probe.predict_proba(X_te)[:, 1]
+
+
 def _tune_threshold(proba_val: np.ndarray, y_val: np.ndarray) -> float:
     """Mirror ``probe.fit_hyperparameters``: tune for F1."""
     candidates = np.unique(np.concatenate([proba_val, np.linspace(0.0, 1.0, 101)]))
@@ -215,16 +231,21 @@ def main() -> None:
     best_layer = max(layer_rows, key=lambda r: r[1]["auroc"])[0]
     print(f"  -> best single layer by AUROC: {best_layer}")
 
+    # Reproduces the body of SOLUTION.md's "Aggregation x probe" table.
+    # The last row uses the actual ``HallucinationProbe`` from ``probe.py``
+    # over the layers in ``aggregation.ENSEMBLE_LAYERS`` — i.e. the exact
+    # configuration that ``python solution.py`` would produce.
     configs = [
-        ("Skeleton: last layer + MLP (no tune)",     agg_last_layer(raw),                              probe_mlp,    False),
-        ("Skeleton: last layer + MLP (tuned)",       agg_last_layer(raw),                              probe_mlp,    True),
-        ("Skeleton: last layer + MLP+wd (tuned)",    agg_last_layer(raw),                              probe_mlp_wd, True),
-        ("Best single layer + MLP (tuned)",          agg_single_layer(raw, best_layer),                probe_mlp,    True),
-        ("Mean(13..24) + MLP (tuned)",               agg_mean_late(raw, 13, 25),                       probe_mlp,    True),
-        ("Mean(13..24) + MLP+wd (tuned)",            agg_mean_late(raw, 13, 25),                       probe_mlp_wd, True),
-        ("Mean(13..24) + LogReg (tuned, was sub'd)", agg_mean_late(raw, 13, 25),                       probe_logreg, True),
-        ("Concat{12,16,20,24} + MLP+wd (tuned)",     agg_concat_layers(raw, (12, 16, 20, 24)),         probe_mlp_wd, True),
-        ("Mean(all 25 layers) + MLP+wd (tuned)",     agg_mean_all(raw),                                probe_mlp_wd, True),
+        ("Skeleton: last layer + MLP (no tune)",     agg_last_layer(raw),                              probe_mlp,           False),
+        ("Skeleton: last layer + MLP (tuned)",       agg_last_layer(raw),                              probe_mlp,           True),
+        ("Skeleton: last layer + MLP+wd (tuned)",    agg_last_layer(raw),                              probe_mlp_wd,        True),
+        ("Best single layer + MLP (tuned)",          agg_single_layer(raw, best_layer),                probe_mlp,           True),
+        ("Mean(13..24) + MLP (tuned)",               agg_mean_late(raw, 13, 25),                       probe_mlp,           True),
+        ("Mean(13..24) + MLP+wd (tuned)",            agg_mean_late(raw, 13, 25),                       probe_mlp_wd,        True),
+        ("Mean(13..24) + LogReg (tuned)",            agg_mean_late(raw, 13, 25),                       probe_logreg,        True),
+        ("Concat{12,16,20,24} + MLP+wd (tuned)",     agg_concat_layers(raw, (12, 16, 20, 24)),         probe_mlp_wd,        True),
+        ("Mean(all 25 layers) + MLP+wd (tuned)",     agg_mean_all(raw),                                probe_mlp_wd,        True),
+        ("Submitted ★ Ensemble + MLP+wd",            agg_concat_layers(raw, tuple(_ENSEMBLE_LAYERS)),  probe_submitted,     True),
     ]
 
     print("\n== Full aggregation x probe table ==")

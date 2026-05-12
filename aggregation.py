@@ -5,30 +5,36 @@ Final strategy
 --------------
 For each sample, take the hidden state at the **last real (non-padding) token
 position** and **concatenate** the activations from a small, curated set of
-transformer layers — by default ``(13, 23, 24)``.  The resulting feature
-vector has length ``n_selected_layers * hidden_dim`` (3 × 896 = 2688 for
-Qwen2.5-0.5B); the probe in ``probe.py`` interprets it as ``n_selected_layers``
-independent 896-dim "views" and trains one MLP per view, ensembling their
-probabilities at inference.
+transformer layers — by default ``(12, 13, 21, 23, 24)``.  The resulting
+feature vector has length ``n_selected_layers * hidden_dim`` (5 × 896 = 4480
+for Qwen2.5-0.5B); the probe in ``probe.py`` interprets it as
+``n_selected_layers`` independent 896-dim "views" and trains one MLP per
+view, ensembling their probabilities at inference.
 
 Why these specific layers
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 Qwen2.5-0.5B has 24 transformer blocks (indices 1..24 in ``hidden_states``;
-index 0 is the token embeddings).  An MLP-probe sweep across single layers
-on the 689-sample training set (see ``tools/ablation.py``) shows three
-distinct peaks of accuracy / AUROC:
+index 0 is the token embeddings).  An MLP-probe sweep across all 25
+positions (see ``tools/ablation.py`` + Figure 1 in ``SOLUTION.md``) shows
+three AUROC local maxima — at layers 13, 21, 24 — and an accuracy peak at
+layer 23:
 
-* **Layer 24** (last) — captures the model's "committed" output state;
-  strongest single-layer accuracy.
-* **Layer 23** — the penultimate transformer block, often very competitive
-  with the last layer on factuality probes because it is one step removed
-  from the next-token logit specialisation.
-* **Layer 13** — a mid-network peak, consistent with the truthfulness-probing
-  literature (Azaria & Mitchell 2023; Burns et al. 2022 CCS) which places
-  factuality signal in middle layers rather than the very top.
+* **Layer 24** (last) — strongest AUROC tie with 13; captures the
+  "committed" output state.
+* **Layer 23** (penultimate) — highest single-layer accuracy and F1.
+  Slightly worse AUROC than 24 because it is one step removed from the
+  next-token specialisation, but provides a complementary decision
+  boundary.
+* **Layer 21** (mid-late) — second mid-late AUROC peak; orthogonal
+  signal to the last two blocks.
+* **Layer 13** (mid-network) — the strongest single-layer AUROC, consistent
+  with the truthfulness-probing literature (Azaria & Mitchell 2023; Burns
+  et al. 2022 CCS) which places factuality signal in middle layers.
+* **Layer 12** — adjacent to 13; included after a layer-combination
+  ablation showed it lifts the 4-layer ensemble across all three metrics.
 
-Mean-pooling these three (or wider bands) into a single 896-dim vector did
-not match the **ensemble** of three independently trained MLPs (see
+Mean-pooling these five (or wider bands) into a single 896-dim vector did
+not match the **ensemble** of five independently trained MLPs (see
 ``SOLUTION.md`` → Failed experiments).  Concatenation here is purely the
 data-passing format: ``probe.py`` does the splitting into per-layer probes.
 

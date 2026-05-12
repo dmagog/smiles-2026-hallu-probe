@@ -2,18 +2,19 @@
 probe.py — Hallucination probe: ensemble of MLPs, one per layer-view.
 
 The feature vector handed in by ``aggregation.py`` is the concatenation of
-``len(ENSEMBLE_LAYERS)`` per-layer last-token hidden states (3 × 896 = 2688
-for Qwen2.5-0.5B with the default layers ``(13, 23, 24)``).  At fit time the
-probe slices it back into the original ``HIDDEN_DIM``-wide chunks and trains
-one small MLP per chunk; at inference time it averages their predicted
-probabilities.
+``len(ENSEMBLE_LAYERS)`` per-layer last-token hidden states (5 × 896 = 4480
+for Qwen2.5-0.5B with the default layers ``(12, 13, 21, 23, 24)``).  At fit
+time the probe slices it back into the original ``HIDDEN_DIM``-wide chunks
+and trains one small MLP per chunk; at inference time it averages their
+predicted probabilities.
 
 The MLP architecture, optimiser, and class-imbalance handling mirror the
 upstream skeleton (one 256-unit hidden layer, full-batch Adam, BCE with
 ``pos_weight = n_neg / n_pos``).  We add two changes:
 
-1. ``weight_decay = 5e-4`` on Adam — small L2 regularisation that nudges
-   AUROC up by ~1 pp without hurting accuracy (see SOLUTION.md → ablation).
+1. ``weight_decay = 1e-3`` on Adam — small L2 regularisation that nudges
+   AUROC up and stabilises predictions across folds without hurting
+   accuracy (see SOLUTION.md → ablation).
 2. ``torch.manual_seed(42)`` before each MLP build — makes the run
    deterministic across re-executions of ``solution.py``.
 
